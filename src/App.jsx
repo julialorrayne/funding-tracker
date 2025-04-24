@@ -1,35 +1,125 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
 
-function App() {
-  const [count, setCount] = useState(0)
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+import React, { useState, useEffect } from 'react';
+import { Line } from 'react-chartjs-2';
+
+const FundingDataLoader = () => {
+  const [chartData, setChartData] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchFundingData = async () => {
+      try {
+        const response = await fetch('/funding.json'); // Ensure funding.json is in the public folder
+        if (!response.ok) {
+          throw new Error('Failed to fetch funding data');
+        }
+        const data = await response.json();
+
+        // Group data by industry and year
+        const fundingByIndustryAndYear = data.reduce((acc, item) => {
+          if (!acc[item.industry]) {
+            acc[item.industry] = {};
+          }
+          acc[item.industry][item.year] = (acc[item.industry][item.year] || 0) + item.amount;
+          return acc;
+        }, {});
+
+        // Prepare data for the chart
+        const years = [...new Set(data.map(item => item.year))].sort();
+        const datasets = Object.keys(fundingByIndustryAndYear).map((industry, index) => {
+          const industryData = fundingByIndustryAndYear[industry];
+          return {
+            label: industry,
+            data: years.map(year => industryData[year] || 0),
+            fill: false,
+            borderColor: predefinedColors[index % predefinedColors.length], // Use predefined colors
+            tension: 0.4, // Smooth lines
+          };
+        });
+
+        setChartData({
+          labels: years,
+          datasets,
+        });
+      } catch (error) {
+        console.error('Error fetching funding data:', error);
+        setError('Failed to load funding data. Please try again later.');
+      }
+    };
+
+    fetchFundingData();
+  }, []);
+
+  // Predefined color palette for better visualization
+  const predefinedColors = [
+    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF',
+  ];
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div>
+      <h1>Funding Trends by Industry</h1>
+      {error ? (
+        <p style={{ color: 'red' }}>{error}</p>
+      ) : chartData ? (
+        <Line
+          data={chartData}
+          options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+              },
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    return `${context.dataset.label}: $${context.raw.toLocaleString()}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Year',
+                },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Funding Amount ($)',
+                },
+                beginAtZero: true,
+              },
+            },
+          }}
+        />
+      ) : (
+        <p>Loading...</p>
+      )}
+    </div>
+  );
+};
 
-export default App
+export default FundingDataLoader;
