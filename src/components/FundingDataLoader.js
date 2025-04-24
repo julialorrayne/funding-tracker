@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Bar } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 
 const FundingDataLoader = () => {
-  const [fundingData, setFundingData] = useState(null);
   const [chartData, setChartData] = useState(null);
 
   useEffect(() => {
@@ -13,29 +12,32 @@ const FundingDataLoader = () => {
           throw new Error('Failed to fetch funding data');
         }
         const data = await response.json();
-        setFundingData(data);
 
-        // Calculate total funding per year
-        const fundingByYear = data.reduce((acc, item) => {
-          acc[item.year] = (acc[item.year] || 0) + item.amount;
+        // Group data by industry and year
+        const fundingByIndustryAndYear = data.reduce((acc, item) => {
+          if (!acc[item.industry]) {
+            acc[item.industry] = {};
+          }
+          acc[item.industry][item.year] = (acc[item.industry][item.year] || 0) + item.amount;
           return acc;
         }, {});
 
         // Prepare data for the chart
-        const years = Object.keys(fundingByYear).sort();
-        const totals = years.map(year => fundingByYear[year]);
+        const years = [...new Set(data.map(item => item.year))].sort();
+        const datasets = Object.keys(fundingByIndustryAndYear).map(industry => {
+          const industryData = fundingByIndustryAndYear[industry];
+          return {
+            label: industry,
+            data: years.map(year => industryData[year] || 0),
+            fill: false,
+            borderColor: getRandomColor(),
+            tension: 0.1,
+          };
+        });
 
         setChartData({
           labels: years,
-          datasets: [
-            {
-              label: 'Total Funding ($)',
-              data: totals,
-              backgroundColor: 'rgba(75, 192, 192, 0.6)',
-              borderColor: 'rgba(75, 192, 192, 1)',
-              borderWidth: 1,
-            },
-          ],
+          datasets,
         });
       } catch (error) {
         console.error('Error fetching funding data:', error);
@@ -43,13 +45,23 @@ const FundingDataLoader = () => {
     };
 
     fetchFundingData();
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
+
+  // Helper function to generate random colors
+  const getRandomColor = () => {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  };
 
   return (
     <div>
-      <h1>Funding Data</h1>
+      <h1>Funding Trends by Industry</h1>
       {chartData ? (
-        <Bar
+        <Line
           data={chartData}
           options={{
             responsive: true,
@@ -69,7 +81,7 @@ const FundingDataLoader = () => {
               y: {
                 title: {
                   display: true,
-                  text: 'Total Funding ($)',
+                  text: 'Funding Amount ($)',
                 },
                 beginAtZero: true,
               },
