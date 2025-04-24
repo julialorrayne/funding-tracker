@@ -4,9 +4,10 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 } from 'chart.js';
 
 ChartJS.register(
@@ -14,16 +15,19 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend
 );
 
 import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 
 const FundingDataLoader = () => {
-  const [chartData, setChartData] = useState(null);
+  const [fundingData, setFundingData] = useState(null);
+  const [barChartData, setBarChartData] = useState(null);
+  const [lineChartData, setLineChartData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -34,8 +38,30 @@ const FundingDataLoader = () => {
           throw new Error('Failed to fetch funding data');
         }
         const data = await response.json();
+        setFundingData(data);
 
-        // Group data by industry and year
+        // Task 2: Calculate total funding per year for the bar chart
+        const fundingByYear = data.reduce((acc, item) => {
+          acc[item.year] = (acc[item.year] || 0) + item.amount;
+          return acc;
+        }, {});
+        const years = Object.keys(fundingByYear).sort();
+        const totals = years.map(year => fundingByYear[year]);
+
+        setBarChartData({
+          labels: years,
+          datasets: [
+            {
+              label: 'Total Funding ($)',
+              data: totals,
+              backgroundColor: 'rgba(153, 102, 255, 0.6)',
+              borderColor: 'rgba(153, 102, 255, 1)',
+              borderWidth: 1,
+            },
+          ],
+        });
+
+        // Task 3: Group data by industry and year for the line chart
         const fundingByIndustryAndYear = data.reduce((acc, item) => {
           if (!acc[item.industry]) {
             acc[item.industry] = {};
@@ -43,23 +69,20 @@ const FundingDataLoader = () => {
           acc[item.industry][item.year] = (acc[item.industry][item.year] || 0) + item.amount;
           return acc;
         }, {});
-
-        // Prepare data for the chart
-        const years = [...new Set(data.map(item => item.year))].sort();
-        const datasets = Object.keys(fundingByIndustryAndYear).map((industry, index) => {
+        const lineDatasets = Object.keys(fundingByIndustryAndYear).map((industry, index) => {
           const industryData = fundingByIndustryAndYear[industry];
           return {
             label: industry,
             data: years.map(year => industryData[year] || 0),
             fill: false,
-            borderColor: predefinedColors[index % predefinedColors.length], // Use predefined colors
-            tension: 0.4, // Smooth lines
+            borderColor: predefinedColors[index % predefinedColors.length],
+            tension: 0.4,
           };
         });
 
-        setChartData({
+        setLineChartData({
           labels: years,
-          datasets,
+          datasets: lineDatasets,
         });
       } catch (error) {
         console.error('Error fetching funding data:', error);
@@ -77,46 +100,88 @@ const FundingDataLoader = () => {
 
   return (
     <div>
-      <h1>Funding Trends by Industry</h1>
+      <h1>Funding Tracker</h1>
       {error ? (
         <p style={{ color: 'red' }}>{error}</p>
-      ) : chartData ? (
-        <Line
-          data={chartData}
-          options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'top',
-              },
-              tooltip: {
-                callbacks: {
-                  label: (context) => {
-                    return `${context.dataset.label}: $${context.raw.toLocaleString()}`;
-                  },
-                },
-              },
-            },
-            scales: {
-              x: {
-                title: {
-                  display: true,
-                  text: 'Year',
-                },
-              },
-              y: {
-                title: {
-                  display: true,
-                  text: 'Funding Amount ($)',
-                },
-                beginAtZero: true,
-              },
-            },
-          }}
-        />
       ) : (
-        <p>Loading...</p>
+        <>
+          <div>
+            <h2>Total Funding by Year</h2>
+            {barChartData ? (
+              <Bar
+                data={barChartData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      display: true,
+                      position: 'top',
+                    },
+                  },
+                  scales: {
+                    x: {
+                      title: {
+                        display: true,
+                        text: 'Year',
+                      },
+                    },
+                    y: {
+                      title: {
+                        display: true,
+                        text: 'Total Funding ($)',
+                      },
+                      beginAtZero: true,
+                    },
+                  },
+                }}
+              />
+            ) : (
+              <p>Loading bar chart...</p>
+            )}
+          </div>
+
+          <div>
+            <h2>Funding Trends by Industry</h2>
+            {lineChartData ? (
+              <Line
+                data={lineChartData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      display: true,
+                      position: 'top',
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (context) => {
+                          return `${context.dataset.label}: $${context.raw.toLocaleString()}`;
+                        },
+                      },
+                    },
+                  },
+                  scales: {
+                    x: {
+                      title: {
+                        display: true,
+                        text: 'Year',
+                      },
+                    },
+                    y: {
+                      title: {
+                        display: true,
+                        text: 'Funding Amount ($)',
+                      },
+                      beginAtZero: true,
+                    },
+                  },
+                }}
+              />
+            ) : (
+              <p>Loading line chart...</p>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
