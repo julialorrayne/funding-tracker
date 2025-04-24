@@ -1,31 +1,8 @@
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
 import React, { useState, useEffect } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
+import './components/FundingDataLoader.css';
 
 const FundingDataLoader = () => {
-  const [fundingData, setFundingData] = useState(null);
   const [barChartData, setBarChartData] = useState(null);
   const [lineChartData, setLineChartData] = useState(null);
   const [error, setError] = useState(null);
@@ -33,14 +10,13 @@ const FundingDataLoader = () => {
   useEffect(() => {
     const fetchFundingData = async () => {
       try {
-        const response = await fetch('/funding.json'); // Ensure funding.json is in the public folder
+        const response = await fetch('/funding.json');
         if (!response.ok) {
           throw new Error('Failed to fetch funding data');
         }
         const data = await response.json();
-        setFundingData(data);
 
-        // Task 2: Calculate total funding per year for the bar chart
+        // Calculate total funding per year
         const fundingByYear = data.reduce((acc, item) => {
           acc[item.year] = (acc[item.year] || 0) + item.amount;
           return acc;
@@ -61,7 +37,7 @@ const FundingDataLoader = () => {
           ],
         });
 
-        // Task 3: Group data by industry and year for the line chart
+        // Group data by industry and year
         const fundingByIndustryAndYear = data.reduce((acc, item) => {
           if (!acc[item.industry]) {
             acc[item.industry] = {};
@@ -93,19 +69,18 @@ const FundingDataLoader = () => {
     fetchFundingData();
   }, []);
 
-  // Predefined color palette for better visualization
   const predefinedColors = [
     '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF',
   ];
 
   return (
-    <div>
+    <div className="container">
       <h1>Funding Tracker</h1>
       {error ? (
-        <p style={{ color: 'red' }}>{error}</p>
+        <p className="error">{error}</p>
       ) : (
         <>
-          <div>
+          <div className="chart-container">
             <h2>Total Funding by Year</h2>
             {barChartData ? (
               <Bar
@@ -140,7 +115,7 @@ const FundingDataLoader = () => {
             )}
           </div>
 
-          <div>
+          <div className="chart-container">
             <h2>Funding Trends by Industry</h2>
             {lineChartData ? (
               <Line
